@@ -165,3 +165,137 @@ namespace ConnectFour
             }
             return true;
         }
+
+        public bool IsValidMove(int column)
+        {
+            column -= 1;
+            return column >= 0 && column < Columns && grid[0, column] == '.';
+        }
+
+        public char[,] GetCopyOfGrid()
+        {
+            return (char[,])grid.Clone();
+        }
+    }
+
+    public abstract class Player
+    {
+        public char Symbol { get; private set; }
+        public Player(char symbol)
+        {
+            Symbol = symbol;
+        }
+        public abstract int ChooseColumn(Board board);
+    }
+
+    public class HumanPlayer : Player
+    {
+        public HumanPlayer(char symbol) : base(symbol) { }
+
+        public override int ChooseColumn(Board board)
+        {
+            int column;
+            Console.Write("Enter column (1-7): ");
+            while (!int.TryParse(Console.ReadLine(), out column) || !board.IsValidMove(column))
+            {
+                Console.Write("Invalid input. Enter column (1-7): ");
+            }
+            return column;
+        }
+    }
+
+    public class AIPlayer : Player
+    {
+        private Random rand = new Random();
+        public AIPlayer(char symbol) : base(symbol) { }
+
+        public override int ChooseColumn(Board board)
+        {
+            Console.WriteLine("AI is choosing a move...");
+            System.Threading.Thread.Sleep(1000);
+
+            List<int> validColumns = new List<int>();
+            for (int col = 1; col <= 7; col++)
+            {
+                if (board.IsValidMove(col))
+                    validColumns.Add(col);
+            }
+
+            // Try to win
+            foreach (int col in validColumns)
+            {
+                var tempBoard = new BoardSimulation(board);
+                tempBoard.DropDisc(col, Symbol);
+                if (tempBoard.CheckWin(Symbol))
+                    return col;
+            }
+
+            // Try to block
+            char opponent = Symbol == 'X' ? 'O' : 'X';
+            foreach (int col in validColumns)
+            {
+                var tempBoard = new BoardSimulation(board);
+                tempBoard.DropDisc(col, opponent);
+                if (tempBoard.CheckWin(opponent))
+                    return col;
+            }
+
+            // Else random
+            return validColumns[rand.Next(validColumns.Count)];
+        }
+
+        private class BoardSimulation
+        {
+            private char[,] grid = new char[6, 7];
+
+            public BoardSimulation(Board original)
+            {
+                Array.Copy(original.GetCopyOfGrid(), grid, grid.Length);
+            }
+
+            public void DropDisc(int column, char symbol)
+            {
+                column -= 1;
+                for (int r = 5; r >= 0; r--)
+                {
+                    if (grid[r, column] == '.')
+                    {
+                        grid[r, column] = symbol;
+                        break;
+                    }
+                }
+            }
+
+            public bool CheckWin(char symbol)
+            {
+                for (int r = 0; r < 6; r++)
+                    for (int c = 0; c < 4; c++)
+                        if (Match(r, c, 0, 1, symbol)) return true;
+
+                for (int r = 0; r < 3; r++)
+                    for (int c = 0; c < 7; c++)
+                        if (Match(r, c, 1, 0, symbol)) return true;
+
+                for (int r = 3; r < 6; r++)
+                    for (int c = 0; c < 4; c++)
+                        if (Match(r, c, -1, 1, symbol)) return true;
+
+                for (int r = 0; r < 3; r++)
+                    for (int c = 0; c < 4; c++)
+                        if (Match(r, c, 1, 1, symbol)) return true;
+
+                return false;
+            }
+
+            private bool Match(int r, int c, int dr, int dc, char s)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    if (grid[r + i * dr, c + i * dc] != s)
+                        return false;
+                }
+                return true;
+            }
+        }
+    }
+}
